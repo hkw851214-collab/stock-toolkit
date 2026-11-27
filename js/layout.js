@@ -4,7 +4,7 @@ const NAV_ITEMS = [
   { id: 'simulator', label: '주가 시뮬레이터', href: '/', soon: false },
   { id: 'dividend',  label: '배당·복리',       href: '/dividend.html', soon: false },
   { id: 'tax',       label: '절세·양도세',     href: '/tax.html', soon: false },
-  { id: 'averaging', label: '물타기 계산기',   href: '/averaging.html', soon: true },
+  { id: 'averaging', label: '물타기 계산기',   href: '/averaging.html', soon: false },
 ];
 
 (function initLayout() {
