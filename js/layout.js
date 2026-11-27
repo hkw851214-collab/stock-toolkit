@@ -5,6 +5,7 @@ const NAV_ITEMS = [
   { id: 'dividend',  label: '배당·복리',       href: '/dividend.html', soon: false },
   { id: 'tax',       label: '절세·양도세',     href: '/tax.html', soon: false },
   { id: 'averaging', label: '물타기 계산기',   href: '/averaging.html', soon: false },
+  { id: 'salary',    label: '연봉 실수령액',   href: '/salary.html', soon: false },
 ];
 
 (function initLayout() {

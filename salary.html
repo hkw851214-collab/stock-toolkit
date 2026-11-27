@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2026 연봉 실수령액 계산기 | 스마트 투자 툴킷</title>
+  <meta name="description" content="2026년 4대보험 요율과 근로소득 간이세액표를 반영해 연봉·월급별 실수령액, 공제 내역, 구간별 연봉 실수령액 표를 한눈에 확인하는 무료 계산기입니다." />
+  <link rel="stylesheet" href="/css/common.css?v=2.0" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label { font-size: 0.93rem; font-weight: 700; color: #cbd5e1; }
+    .field input, .field select {
+      width: 100%;
+      min-width: 0;
+      padding: 12px 13px;
+      background: #0f172a;
+      color: #f8fafc;
+      border: 1.5px solid #334155;
+      border-radius: 10px;
+      font-size: 1.06rem;
+      font-weight: 600;
+      outline: none;
+    }
+    .field input:focus, .field select:focus { border-color: #38bdf8; }
+
+    .action-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    .split-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.15fr;
+      gap: 18px;
+      align-items: center;
+      margin-top: 18px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+    }
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+    .data-table th {
+      background: #0f172a;
+      color: #94a3b8;
+      font-weight: 700;
+      padding: 12px 12px;
+      text-align: right;
+      border-bottom: 1px solid #1e293b;
+    }
+    .data-table th:first-child, .data-table td:first-child { text-align: left; padding-left: 14px; }
+    .data-table td {
+      padding: 11px 12px;
+      text-align: right;
+      border-bottom: 1px solid #1f2937;
+      color: #e2e8f0;
+      font-variant-numeric: tabular-nums;
+    }
+    .data-table tr:last-child td { border-bottom: none; font-weight: 800; background: rgba(56, 189, 248, 0.08); }
+    .data-table .amber { color: #fbbf24; font-weight: 700; }
+    .data-table .red { color: #fb7185; font-weight: 700; }
+
+    .invest-cta {
+      margin-top: 20px;
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 12px;
+      padding: 16px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .invest-cta p { font-size: 0.98rem; color: #e2e8f0; margin: 0; }
+    .invest-cta strong { color: #38bdf8; }
+    .btn-link {
+      display: inline-block;
+      padding: 10px 18px;
+      background: #0284c7;
+      color: #ffffff;
+      text-decoration: none;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .btn-link:hover { background: #0369a1; }
+
+    @media (max-width: 760px) {
+      .form-grid { grid-template-columns: repeat(2, 1fr); }
+      .split-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body data-page="salary">
+  <div id="site-nav"></div>
+
+  <main class="wrap">
+    <header class="page-header">
+      <h1>2026 연봉 실수령액 계산기</h1>
+      <p>4대보험 · 근로소득세 · 비과세 식대 반영 월 예상 실수령액 및 구간별 실수령표</p>
+    </header>
+
+    <div id="ad-top"></div>
+
+    <section class="card">
+      <div class="quick-tags" style="margin-top: 0; margin-bottom: 18px;">
+        <button data-sal="3500">연봉 3,500만</button>
+        <button data-sal="5000">연봉 5,000만</button>
+        <button data-sal="7000">연봉 7,000만</button>
+        <button data-sal="10000">연봉 1억</button>
+        <button data-sal="12000">연봉 1억 2,000만</button>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label for="annualSalary">연봉 (만원)</label>
+          <input id="annualSalary" type="number" min="1000" max="100000" step="100" value="6000" />
+        </div>
+        <div class="field">
+          <label for="severanceType">퇴직금 포함 여부</label>
+          <select id="severanceType">
+            <option value="separate" selected>퇴직금 별도 (÷ 12)</option>
+            <option value="included">퇴직금 포함 (÷ 13)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="nonTax">월 비과세액 (식대 등, 만원)</label>
+          <input id="nonTax" type="number" min="0" max="200" step="10" value="20" />
+        </div>
+        <div class="field">
+          <label for="dependents">부양가족 수 (본인 포함)</label>
+          <select id="dependents">
+            <option value="1" selected>1명 (본인)</option>
+            <option value="2">2명</option>
+            <option value="3">3명</option>
+            <option value="4">4명</option>
+            <option value="5">5명 이상</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="children">8~20세 자녀 수</label>
+          <select id="children">
+            <option value="0" selected>0명</option>
+            <option value="1">1명</option>
+            <option value="2">2명</option>
+            <option value="3">3명 이상</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="taxRatio">원천징수 세율 선택</label>
+          <select id="taxRatio">
+            <option value="0.8">80% (월급 더 받기)</option>
+            <option value="1.0" selected>100% (기본)</option>
+            <option value="1.2">120% (연말정산 환급)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="action-bar">
+        <div id="salStatus" class="status" style="margin-top: 0;"></div>
+        <button id="calcBtn" class="btn-primary" type="button">실수령액 계산</button>
+      </div>
+    </section>
+
+    <section id="resultSection" class="card">
+      <div class="result-head">
+        <h2 id="resultTitle">연봉 6,000만원 예상 실수령액 리포트</h2>
+      </div>
+
+      <div class="metrics">
+        <div class="metric-box">
+          <div class="label">월 예상 실수령액</div>
+          <div id="mNetMonthly" class="val up">-</div>
+          <div id="mNetRatio" class="sub" style="color:#cbd5e1;">세전 대비 -%</div>
+        </div>
+        <div class="metric-box">
+          <div class="label">월 공제액 합계</div>
+          <div id="mTotalDeduct" class="val down">-</div>
+          <div id="mDeductRatio" class="sub" style="color:#cbd5e1;">공제율 -%</div>
+        </div>
+        <div class="metric-box">
+          <div class="label">연 예상 실수령액</div>
+          <div id="mNetAnnual" class="val amber">-</div>
+          <div id="mGrossMonthly" class="sub" style="color:#cbd5e1;">세전 월급 -</div>
+        </div>
+      </div>
+
+      <div class="split-grid">
+        <div class="chart-box" style="height: 290px;">
+          <canvas id="salChart"></canvas>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>공제 항목</th>
+                <th>적용 기준</th>
+                <th>월 공제액</th>
+              </tr>
+            </thead>
+            <tbody id="deductTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="invest-cta">
+        <p id="investCtaText">매월 실수령액의 30%를 적립식 투자하면 15년 뒤 얼마가 될까요?</p>
+        <a class="btn-link" href="/dividend.html">배당·복리 계산기로 확인 →</a>
+      </div>
+    </section>
+
+    <div id="ad-bottom"></div>
+
+    <!-- SEO & 체류시간 강화용 연봉 구간별 실수령표 -->
+    <section class="card guide-card">
+      <h2>📊 2026년 연봉 구간별 월 실수령액 한눈에 보기</h2>
+      <p style="margin-bottom: 14px;">퇴직금 별도 · 비과세 식대 월 20만 원 · 부양가족 1명(본인) · 원천징수 100% 기준 예상치입니다.</p>
+      <div class="table-wrap">
+        <table class="data-table" style="min-width: 520px;">
+          <thead>
+            <tr>
+              <th>연봉</th>
+              <th>세전 월급</th>
+              <th>4대보험 합계</th>
+              <th>소득세+지방세</th>
+              <th>월 실수령액</th>
+            </tr>
+          </thead>
+          <tbody id="refTableBody"></tbody>
+        </table>
+      </div>
+
+      <h3>📌 2026년 4대보험 공제 요율 안내 (근로자 부담분)</h3>
+      <ul>
+        <li><strong>국민연금 (4.5%):</strong> 기준소득월액 상한액(월 617만 원 기준, 최대 약 27.7만 원)이 적용되어 고연봉 구간에서는 공제액이 더 이상 늘어나지 않습니다.</li>
+        <li><strong>건강보험 (3.545%) &amp; 장기요양보험 (건강보험료의 12.95%):</strong> 보수월액에 비례하여 부과됩니다.</li>
+        <li><strong>고용보험 (0.9%):</strong> 실업급여 근로자 부담분으로 과세 급여의 0.9%가 공제됩니다.</li>
+      </ul>
+    </section>
+
+    <div id="site-footer"></div>
+  </main>
+
+  <script src="/js/layout.js?v=2.0"></script>
+  <script src="/js/salary.js?v=2.0"></script>
+</body>
+</html>
