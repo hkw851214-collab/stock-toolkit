@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>종목 주가 시나리오 시뮬레이터 | 변동성 기반 몬테카를로 분석</title>
-  <meta name="description" content="국내 및 미국 주식의 과거 1년 변동성 데이터를 바탕으로 향후 예상 주가 범위(낙관·중앙·보수)를 1,000회 시뮬레이션하는 무료 툴입니다." />
+  <meta name="description" content="국내 및 미국 주식의 과거 1년 변동성과 일봉 추세를 바탕으로 향후 예상 주가 범위(낙관·중앙·보수)를 1,000회 시뮬레이션하는 무료 툴입니다." />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -15,7 +15,7 @@
       line-height: 1.6;
       min-height: 100vh;
     }
-    .wrap { max-width: 920px; margin: 0 auto; padding: 28px 16px 56px; }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 28px 16px 56px; }
 
     header { text-align: center; margin-bottom: 24px; }
     .title-row { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; justify-content: center; }
@@ -75,7 +75,7 @@
       font-size: 0.98rem;
       font-weight: 700;
       cursor: pointer;
-      transition: opacity 0.2s, transform 0.1s;
+      transition: opacity 0.2s;
     }
     .search-row button:hover { opacity: 0.92; }
     .search-row button:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -96,9 +96,42 @@
     .status { margin-top: 13px; font-size: 0.88rem; color: #38bdf8; min-height: 22px; }
     .status.error { color: #fb7185; }
 
-    #stockTitle { font-size: 1.15rem; font-weight: 700; color: #f8fafc; margin-bottom: 16px; }
+    .result-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    #stockTitle { font-size: 1.15rem; font-weight: 700; color: #f8fafc; }
 
-    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+    .mode-toggle {
+      display: inline-flex;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 9px;
+      padding: 3px;
+      gap: 3px;
+    }
+    .mode-toggle button {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      padding: 6px 13px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .mode-toggle button.active {
+      background: #1e293b;
+      color: #f8fafc;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+    }
+
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
     .metric-box {
       background: #0f172a;
       border: 1px solid #1e293b;
@@ -111,8 +144,9 @@
     .metric-box .sub { font-size: 0.78rem; margin-top: 3px; font-weight: 600; }
     .up { color: #fb7185 !important; }
     .down { color: #38bdf8 !important; }
+    .amber { color: #fbbf24 !important; }
 
-    .chart-box { position: relative; height: 390px; width: 100%; }
+    .chart-box { position: relative; height: 420px; width: 100%; }
 
     .banner-zone {
       background: rgba(30, 41, 59, 0.45);
@@ -139,7 +173,7 @@
 
     @media (max-width: 640px) {
       .metrics { grid-template-columns: repeat(2, 1fr); }
-      .chart-box { height: 310px; }
+      .chart-box { height: 330px; }
     }
   </style>
 </head>
@@ -148,9 +182,9 @@
     <header>
       <div class="title-row">
         <h1>종목 주가 시나리오 시뮬레이터</h1>
-        <span class="ver-badge">v1.1</span>
+        <span class="ver-badge">v1.2</span>
       </div>
-      <p>과거 1년 실제 변동성 기반 · 몬테카를로 1,000회 통계 시뮬레이션</p>
+      <p>과거 1년 실제 변동성 · 일봉 추세 기반 몬테카를로 1,000회 통계 시뮬레이션</p>
     </header>
 
     <!-- [상단 배너 슬롯: 추후 Google AdSense 디스플레이 코드 삽입 위치] -->
@@ -178,7 +212,14 @@
     </section>
 
     <section id="resultSection" class="card" style="display: none;">
-      <h2 id="stockTitle"></h2>
+      <div class="result-head">
+        <h2 id="stockTitle"></h2>
+        <div class="mode-toggle" role="group" aria-label="차트 형태 선택">
+          <button id="btnCandle" class="active" data-mode="candle">일봉 차트</button>
+          <button id="btnLine" data-mode="line">선 차트</button>
+        </div>
+      </div>
+
       <div class="metrics">
         <div class="metric-box">
           <div class="label">현재 주가</div>
@@ -200,6 +241,16 @@
           <div id="mLow" class="val down">-</div>
           <div id="mLowPct" class="sub down">-</div>
         </div>
+        <div class="metric-box">
+          <div class="label">상승 마감 확률</div>
+          <div id="mUpProb" class="val up">-</div>
+          <div class="sub" style="color:#94a3b8;">현재가 초과 마감</div>
+        </div>
+        <div class="metric-box">
+          <div class="label">52주 고점 돌파 확률</div>
+          <div id="mBreakProb" class="val amber">-</div>
+          <div id="mYearHigh" class="sub" style="color:#94a3b8;">1년 고점 -</div>
+        </div>
       </div>
 
       <div class="chart-box">
@@ -211,12 +262,12 @@
     <div class="banner-zone">하단 광고 배너 예정 영역 (AdSense 승인 후 코드 삽입)</div>
 
     <div class="disclaimer">
-      <strong>※ 투자 유의사항 (면책 조항):</strong> 본 시뮬레이터는 해당 종목의 과거 1년 종가 변동성을 바탕으로 기하 브라운 운동(GBM) 몬테카를로 모형을 1,000회 실행해 산출한 <strong>통계적 참고용(재미) 시나리오</strong>입니다. 미래의 실제 주가를 예측하거나 보장하지 않으며, 특정 종목의 매수·매도 권유가 아닙니다. 모든 투자 판단과 책임은 투자자 본인에게 있습니다.
+      <strong>※ 투자 유의사항 (면책 조항):</strong> 본 시뮬레이터는 해당 종목의 과거 1년 종가 변동성과 단기 추세를 바탕으로 기하 브라운 운동(GBM) 몬테카를로 모형을 1,000회 실행해 산출한 <strong>통계적 참고용(재미) 시나리오</strong>입니다. 미래의 실제 주가를 예측하거나 보장하지 않으며, 특정 종목의 매수·매도 권유가 아닙니다. 모든 투자 판단과 책임은 투자자 본인에게 있습니다.
     </div>
 
-    <footer>Stock Scenario Simulator · Build v1.1 (Dark Terminal)</footer>
+    <footer>Stock Scenario Simulator · Build v1.2 (Dark Terminal + Candlestick)</footer>
   </div>
 
-  <script src="app.js?v=1.1"></script>
+  <script src="app.js?v=1.2"></script>
 </body>
 </html>
