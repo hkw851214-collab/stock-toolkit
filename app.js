@@ -1,3 +1,4 @@
+const APP_VERSION = '1.1';
 let chartInstance = null;
 
 const stockInput = document.getElementById('stockInput');
@@ -6,7 +7,6 @@ const runBtn = document.getElementById('runBtn');
 const statusMsg = document.getElementById('statusMsg');
 const resultSection = document.getElementById('resultSection');
 
-// 표준정규분포 난수 생성 (Box-Muller 변환)
 function randNormal() {
   let u = 0, v = 0;
   while (u === 0) u = Math.random();
@@ -14,7 +14,6 @@ function randNormal() {
   return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
 }
 
-// 통화 포맷팅
 function formatPrice(val, currency) {
   if (currency === 'KRW') return `${Math.round(val).toLocaleString('ko-KR')}원`;
   return `$${val.toFixed(2)}`;
@@ -26,7 +25,6 @@ function formatPct(target, base) {
   return `${sign}${pct.toFixed(1)}%`;
 }
 
-// 몬테카를로 시뮬레이션 (기하 브라운 운동, 1,000회)
 function runMonteCarlo(closes, days, numSim = 1000) {
   const returns = [];
   for (let i = 1; i < closes.length; i++) {
@@ -37,12 +35,10 @@ function runMonteCarlo(closes, days, numSim = 1000) {
   const variance = returns.reduce((a, b) => a + Math.pow(b - rawMean, 2), 0) / (returns.length - 1);
   const sigma = Math.sqrt(variance);
 
-  // 최근 단기 급등/급락으로 인한 비현실적 외삽 방지를 위해 일간 추세를 완만하게 제한
   const clampedMean = Math.max(-0.0012, Math.min(0.0012, rawMean));
   const drift = clampedMean - 0.5 * variance;
   const lastPrice = closes[closes.length - 1];
 
-  // paths[day][simIndex]
   const dayBuckets = Array.from({ length: days }, () => new Float64Array(numSim));
 
   for (let s = 0; s < numSim; s++) {
@@ -91,7 +87,7 @@ function renderChart(data, sim, days) {
         {
           label: '과거 주가 (최근 60거래일)',
           data: histSeries,
-          borderColor: '#0f172a',
+          borderColor: '#f8fafc',
           borderWidth: 2,
           pointRadius: 0,
           tension: 0.1,
@@ -99,7 +95,7 @@ function renderChart(data, sim, days) {
         {
           label: '낙관 시나리오 (상위 10%)',
           data: highSeries,
-          borderColor: '#dc2626',
+          borderColor: '#fb7185',
           borderDash: [5, 4],
           borderWidth: 1.5,
           pointRadius: 0,
@@ -108,20 +104,20 @@ function renderChart(data, sim, days) {
         {
           label: '중앙값 시나리오 (50%)',
           data: midSeries,
-          borderColor: '#2563eb',
-          borderWidth: 2.2,
+          borderColor: '#38bdf8',
+          borderWidth: 2.3,
           pointRadius: 0,
           fill: false,
         },
         {
           label: '보수 시나리오 (하위 10%)',
           data: lowSeries,
-          borderColor: '#64748b',
+          borderColor: '#60a5fa',
           borderDash: [5, 4],
           borderWidth: 1.5,
           pointRadius: 0,
-          backgroundColor: 'rgba(37, 99, 235, 0.10)',
-          fill: 1, // Dataset 1(상위 10%) ~ Dataset 3(하위 10%) 사이 밴드 음영 채우기
+          backgroundColor: 'rgba(56, 189, 248, 0.12)',
+          fill: 1,
         },
       ],
     },
@@ -130,8 +126,16 @@ function renderChart(data, sim, days) {
       maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+        legend: {
+          position: 'top',
+          labels: { color: '#cbd5e1', boxWidth: 12, font: { size: 11 } },
+        },
         tooltip: {
+          backgroundColor: '#0f172a',
+          titleColor: '#f8fafc',
+          bodyColor: '#e2e8f0',
+          borderColor: '#334155',
+          borderWidth: 1,
           callbacks: {
             label: (ctx) => {
               if (ctx.raw == null) return '';
@@ -141,13 +145,18 @@ function renderChart(data, sim, days) {
         },
       },
       scales: {
-        x: { ticks: { maxTicksLimit: 8, font: { size: 11 } }, grid: { display: false } },
+        x: {
+          ticks: { color: '#94a3b8', maxTicksLimit: 8, font: { size: 11 } },
+          grid: { display: false },
+        },
         y: {
           position: 'right',
           ticks: {
+            color: '#94a3b8',
             font: { size: 11 },
             callback: (v) => (data.currency === 'KRW' ? v.toLocaleString('ko-KR') : `$${v}`),
           },
+          grid: { color: 'rgba(51, 65, 85, 0.45)' },
         },
       },
     },
@@ -169,7 +178,7 @@ async function executeSimulation(queryOverride) {
   runBtn.disabled = true;
 
   try {
-    const res = await fetch(`/api/stock?q=${encodeURIComponent(q)}`);
+    const res = await fetch(`/api/stock?q=${encodeURIComponent(q)}&v=${APP_VERSION}`, { cache: 'no-store' });
     const data = await res.json();
 
     if (!res.ok || data.error) {
@@ -199,7 +208,7 @@ async function executeSimulation(queryOverride) {
 
     resultSection.style.display = 'block';
     renderChart(data, sim, days);
-    statusMsg.textContent = `✅ '${data.name}' 시뮬레이션 완료 (1,000회 경로 기준)`;
+    statusMsg.textContent = `✅ '${data.name}' 시뮬레이션 완료 (1,000회 경로 기준 · API v${data.version || APP_VERSION})`;
   } catch (err) {
     statusMsg.textContent = `❌ ${err.message}`;
     statusMsg.className = 'status error';
@@ -216,6 +225,5 @@ document.querySelectorAll('.quick-tags button').forEach((btn) => {
   btn.addEventListener('click', () => executeSimulation(btn.dataset.q));
 });
 
-// URL에 ?q=삼성전자 파라미터가 넘어오면 자동 실행 (티스토리 글에서 바로 연결용)
 const urlQ = new URLSearchParams(window.location.search).get('q');
 if (urlQ) executeSimulation(urlQ);
