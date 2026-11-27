@@ -1,3 +1,5 @@
+const API_VERSION = '1.1';
+
 const POPULAR_KR_STOCKS = {
   '삼성전자': { code: '005930', suffix: '.KS' },
   'SK하이닉스': { code: '000660', suffix: '.KS' },
@@ -17,6 +19,17 @@ const POPULAR_KR_STOCKS = {
   '에코프로비엠': { code: '247540', suffix: '.KQ' },
   '알테오젠': { code: '196170', suffix: '.KQ' },
 };
+
+function jsonResponse(body, status = 200) {
+  return new Response(JSON.stringify({ ...body, version: API_VERSION }), {
+    status,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': status === 200 ? 'public, max-age=1800' : 'no-store',
+    },
+  });
+}
 
 async function fetchYahooChart(symbol) {
   const res = await fetch(
@@ -51,12 +64,10 @@ async function fetchYahooChart(symbol) {
 }
 
 async function resolveKoreanStock(query) {
-  // 1. 6자리 종목코드 직접 입력
   if (/^\d{6}$/.test(query)) {
     return { code: query, name: query, suffix: null };
   }
 
-  // 2. 내장 인기 종목 매핑 확인 (가장 빠르고 차단 없음)
   const normalized = query.replace(/\s+/g, '');
   for (const [k, v] of Object.entries(POPULAR_KR_STOCKS)) {
     if (k.toUpperCase() === normalized.toUpperCase()) {
@@ -64,7 +75,6 @@ async function resolveKoreanStock(query) {
     }
   }
 
-  // 3. 네이버 자동완성 API 조회
   try {
     const acRes = await fetch(
       `https://ac.stock.naver.com/ac?q=${encodeURIComponent(query)}&target=stock`,
@@ -87,7 +97,6 @@ async function resolveKoreanStock(query) {
     }
   } catch (_) {}
 
-  // 4. 야후 파이낸스 검색 API 백업
   try {
     const ySearch = await fetch(
       `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=5&newsCount=0`,
@@ -112,14 +121,8 @@ export async function onRequestGet(context) {
   const url = new URL(context.request.url);
   const query = (url.searchParams.get('q') || '').trim();
 
-  const headers = {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Access-Control-Allow-Origin': '*',
-    'Cache-Control': 'public, max-age=1800',
-  };
-
   if (!query) {
-    return new Response(JSON.stringify({ error: '종목명 또는 티커를 입력해 주세요.' }), { status: 400, headers });
+    return jsonResponse({ error: '종목명 또는 티커를 입력해 주세요.' }, 400);
   }
 
   try {
@@ -129,13 +132,12 @@ export async function onRequestGet(context) {
     if (isKrCode || hasKorean) {
       const info = await resolveKoreanStock(query);
       if (!info) {
-        return new Response(
-          JSON.stringify({ error: `'${query}' 국내 종목을 찾지 못했습니다. 6자리 종목코드(예: 005930)로도 검색할 수 있습니다.` }),
-          { status: 404, headers }
+        return jsonResponse(
+          { error: `'${query}' 국내 종목을 찾지 못했습니다. 6자리 종목코드(예: 005930)로도 검색할 수 있습니다.` },
+          404
         );
       }
 
-      // 코스피(.KS) / 코스닥(.KQ) 순서대로 야후 파이낸스 조회
       const suffixes = info.suffix ? [info.suffix, info.suffix === '.KS' ? '.KQ' : '.KS'] : ['.KS', '.KQ'];
       let chart = null;
 
@@ -145,42 +147,35 @@ export async function onRequestGet(context) {
       }
 
       if (!chart) {
-        return new Response(JSON.stringify({ error: `'${info.name}'(${info.code})의 최근 1년 주가 데이터를 불러오지 못했습니다.` }), { status: 404, headers });
+        return jsonResponse({ error: `'${info.name}'(${info.code})의 최근 1년 주가 데이터를 불러오지 못했습니다.` }, 404);
       }
 
-      return new Response(
-        JSON.stringify({
-          name: info.name,
-          symbol: info.code,
-          market: 'KR',
-          currency: 'KRW',
-          dates: chart.dates,
-          closes: chart.closes,
-        }),
-        { status: 200, headers }
-      );
+      return jsonResponse({
+        name: info.name,
+        symbol: info.code,
+        market: 'KR',
+        currency: 'KRW',
+        dates: chart.dates,
+        closes: chart.closes,
+      });
     } else {
-      // 해외 주식 (티커 기준)
       const symbol = query.toUpperCase();
       const chart = await fetchYahooChart(symbol);
 
       if (!chart) {
-        return new Response(JSON.stringify({ error: `'${symbol}' 티커를 찾을 수 없습니다.` }), { status: 404, headers });
+        return jsonResponse({ error: `'${symbol}' 티커를 찾을 수 없습니다.` }, 404);
       }
 
-      return new Response(
-        JSON.stringify({
-          name: chart.name,
-          symbol,
-          market: 'US',
-          currency: chart.currency,
-          dates: chart.dates,
-          closes: chart.closes,
-        }),
-        { status: 200, headers }
-      );
+      return jsonResponse({
+        name: chart.name,
+        symbol,
+        market: 'US',
+        currency: chart.currency,
+        dates: chart.dates,
+        closes: chart.closes,
+      });
     }
   } catch (err) {
-    return new Response(JSON.stringify({ error: `데이터 조회 오류: ${err.message}` }), { status: 500, headers });
+    return jsonResponse({ error: `데이터 조회 오류: ${err.message}` }, 500);
   }
 }
