@@ -1,15 +1,38 @@
-const APP_VERSION = '1.2';
+const APP_VERSION = '1.3';
 let chartInstance = null;
-let chartMode = 'candle'; // 'candle' | 'line'
-let lastState = null;     // { data, sim, days }
+let chartMode = 'candle';
+let lastState = null;
 
 const stockInput = document.getElementById('stockInput');
 const horizonSelect = document.getElementById('horizonSelect');
 const runBtn = document.getElementById('runBtn');
+const quickTagBtns = document.querySelectorAll('.quick-tags button');
 const statusMsg = document.getElementById('statusMsg');
+const loadingBox = document.getElementById('loadingBox');
+const loadingTitle = document.getElementById('loadingTitle');
+const loadingStep = document.getElementById('loadingStep');
+const progressFill = document.getElementById('progressFill');
+const progressPct = document.getElementById('progressPct');
 const resultSection = document.getElementById('resultSection');
 const btnCandle = document.getElementById('btnCandle');
 const btnLine = document.getElementById('btnLine');
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function setProgress(pct, stepText) {
+  progressFill.style.width = `${pct}%`;
+  progressPct.textContent = `${pct}%`;
+  loadingStep.textContent = stepText;
+}
+
+function setControlsDisabled(disabled) {
+  runBtn.disabled = disabled;
+  quickTagBtns.forEach((btn) => {
+    btn.disabled = disabled;
+  });
+}
 
 function randNormal() {
   let u = 0, v = 0;
@@ -40,7 +63,6 @@ function calcMA(closes, period) {
   return result;
 }
 
-// 커스텀 일봉(캔들) 렌더링 플러그인 (외부 라이브러리 의존성 없음)
 const candlestickPlugin = {
   id: 'candlestickPlugin',
   beforeDatasetsDraw(chart, _args, pluginOptions) {
@@ -49,7 +71,7 @@ const candlestickPlugin = {
     const { ctx, chartArea, scales: { x, y } } = chart;
     const ohlc = pluginOptions.ohlc;
     const totalPoints = chart.data.labels.length;
-    const bodyWidth = Math.max(2, Math.min(8, (chartArea.width / totalPoints) * 0.62));
+    const bodyWidth = Math.max(2.5, Math.min(8.5, (chartArea.width / totalPoints) * 0.64));
 
     ctx.save();
     ctx.beginPath();
@@ -67,19 +89,17 @@ const candlestickPlugin = {
       const yClose = y.getPixelForValue(bar.c);
 
       const isUp = bar.c >= bar.o;
-      const color = isUp ? '#f43f5e' : '#38bdf8'; // 한국 기준: 양봉 빨강 / 음봉 파랑
+      const color = isUp ? '#f43f5e' : '#38bdf8';
 
-      // 고가~저가 심지(꼬리)
       ctx.strokeStyle = color;
-      ctx.lineWidth = 1.2;
+      ctx.lineWidth = 1.4;
       ctx.beginPath();
       ctx.moveTo(xPos, yHigh);
       ctx.lineTo(xPos, yLow);
       ctx.stroke();
 
-      // 시가~종가 몸통
       const bodyTop = Math.min(yOpen, yClose);
-      const bodyHeight = Math.max(1.5, Math.abs(yClose - yOpen));
+      const bodyHeight = Math.max(2, Math.abs(yClose - yOpen));
       ctx.fillStyle = color;
       ctx.fillRect(xPos - bodyWidth / 2, bodyTop, bodyWidth, bodyHeight);
     }
@@ -102,7 +122,6 @@ function runMonteCarlo(data, days, numSim = 1000) {
   const variance = returns.reduce((a, b) => a + Math.pow(b - fullMean, 2), 0) / (returns.length - 1);
   const sigma = Math.sqrt(variance);
 
-  // 1년 평균(65%) + 최근 60일 단기 추세(35%) 혼합 후 과도한 외삽 제한
   const blendedMean = fullMean * 0.65 + recentMean * 0.35;
   const clampedMean = Math.max(-0.0025, Math.min(0.0025, blendedMean));
   const drift = clampedMean - 0.5 * variance;
@@ -190,11 +209,10 @@ function renderChart(data, sim, days) {
 
   const isCandle = chartMode === 'candle';
 
-  // 반투명 가상 시뮬레이션 경로 18개
   const sampleDatasets = sim.samplePaths.map((path) => ({
     label: '',
     data: [...padBefore, lastClose, ...path],
-    borderColor: 'rgba(148, 163, 184, 0.14)',
+    borderColor: 'rgba(148, 163, 184, 0.15)',
     borderWidth: 1,
     pointRadius: 0,
     tension: 0.05,
@@ -207,7 +225,7 @@ function renderChart(data, sim, days) {
       label: isCandle ? '일봉 (OHLC)' : '과거 종가 (60일)',
       data: histSeries,
       borderColor: isCandle ? 'transparent' : '#f8fafc',
-      borderWidth: isCandle ? 0 : 2,
+      borderWidth: isCandle ? 0 : 2.2,
       pointRadius: 0,
       tension: 0.1,
       order: 3,
@@ -216,7 +234,7 @@ function renderChart(data, sim, days) {
       label: '20일 이평선',
       data: ma20Series,
       borderColor: '#f59e0b',
-      borderWidth: 1.3,
+      borderWidth: 1.5,
       pointRadius: 0,
       tension: 0.15,
       order: 2,
@@ -225,7 +243,7 @@ function renderChart(data, sim, days) {
       label: '60일 이평선',
       data: ma60Series,
       borderColor: '#a78bfa',
-      borderWidth: 1.3,
+      borderWidth: 1.5,
       pointRadius: 0,
       tension: 0.15,
       order: 2,
@@ -235,7 +253,7 @@ function renderChart(data, sim, days) {
       data: highSeries,
       borderColor: '#fb7185',
       borderDash: [5, 4],
-      borderWidth: 1.6,
+      borderWidth: 1.8,
       pointRadius: 0,
       fill: false,
       order: 1,
@@ -244,7 +262,7 @@ function renderChart(data, sim, days) {
       label: '중앙값 (50%)',
       data: midSeries,
       borderColor: '#38bdf8',
-      borderWidth: 2.3,
+      borderWidth: 2.5,
       pointRadius: 0,
       fill: false,
       order: 1,
@@ -254,15 +272,14 @@ function renderChart(data, sim, days) {
       data: lowSeries,
       borderColor: '#60a5fa',
       borderDash: [5, 4],
-      borderWidth: 1.6,
+      borderWidth: 1.8,
       pointRadius: 0,
       backgroundColor: 'rgba(56, 189, 248, 0.10)',
-      fill: '-2', // 낙관(상위 10%)과 보수(하위 10%) 사이 영역 음영
+      fill: '-2',
       order: 1,
     },
   ];
 
-  // 캔들 고가/저가가 차트 위아래에 잘리지 않도록 여유 범위 계산
   const allHighs = [...ohlcSlice.map((b) => b.h), ...sim.p90];
   const allLows = [...ohlcSlice.map((b) => b.l), ...sim.p10];
   const minVal = Math.min(...allLows);
@@ -279,7 +296,7 @@ function renderChart(data, sim, days) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      animation: { duration: 250 },
+      animation: { duration: 300 },
       interaction: { mode: 'index', intersect: false },
       plugins: {
         candlestickPlugin: {
@@ -289,9 +306,10 @@ function renderChart(data, sim, days) {
         legend: {
           position: 'top',
           labels: {
-            color: '#cbd5e1',
-            boxWidth: 12,
-            font: { size: 11 },
+            color: '#e2e8f0',
+            boxWidth: 14,
+            padding: 14,
+            font: { size: 13, weight: '600' },
             filter: (item) => Boolean(item.text),
           },
         },
@@ -301,6 +319,9 @@ function renderChart(data, sim, days) {
           bodyColor: '#e2e8f0',
           borderColor: '#334155',
           borderWidth: 1,
+          padding: 12,
+          titleFont: { size: 14, weight: '700' },
+          bodyFont: { size: 13 },
           filter: (item) => Boolean(item.dataset.label),
           callbacks: {
             label: (ctx) => {
@@ -321,7 +342,7 @@ function renderChart(data, sim, days) {
       },
       scales: {
         x: {
-          ticks: { color: '#94a3b8', maxTicksLimit: 9, font: { size: 11 } },
+          ticks: { color: '#cbd5e1', maxTicksLimit: 8, font: { size: 13 } },
           grid: { display: false },
         },
         y: {
@@ -329,8 +350,8 @@ function renderChart(data, sim, days) {
           suggestedMin: Math.max(0, minVal - pad),
           suggestedMax: maxVal + pad,
           ticks: {
-            color: '#94a3b8',
-            font: { size: 11 },
+            color: '#cbd5e1',
+            font: { size: 13 },
             callback: (v) => (data.currency === 'KRW' ? Math.round(v).toLocaleString('ko-KR') : `$${v.toFixed(1)}`),
           },
           grid: { color: 'rgba(51, 65, 85, 0.45)' },
@@ -359,19 +380,38 @@ async function executeSimulation(queryOverride) {
   }
 
   stockInput.value = q;
-  statusMsg.textContent = `⏳ '${q}' 최근 1년 일봉 수집 및 1,000회 시뮬레이션 계산 중...`;
+  statusMsg.textContent = '';
   statusMsg.className = 'status';
-  runBtn.disabled = true;
+  setControlsDisabled(true);
+
+  resultSection.style.display = 'none';
+  loadingBox.style.display = 'block';
+  loadingTitle.textContent = `'${q}' 정밀 시나리오 분석 중...`;
 
   try {
-    const res = await fetch(`/api/stock?q=${encodeURIComponent(q)}&v=${APP_VERSION}`, { cache: 'no-store' });
-    const data = await res.json();
+    // 네트워크 조회를 백그라운드에서 즉시 시작하면서 단계별 분석 연출 진행
+    const fetchPromise = fetch(`/api/stock?q=${encodeURIComponent(q)}&v=${APP_VERSION}`, { cache: 'no-store' });
 
+    setProgress(24, '1/4 단계 · 최근 1년 일봉 시세 데이터 수집 중...');
+    await sleep(800);
+
+    const res = await fetchPromise;
+    const data = await res.json();
     if (!res.ok || data.error) {
       throw new Error(data.error || '종목 데이터를 불러오지 못했습니다.');
     }
 
+    loadingTitle.textContent = `'${data.name}' 정밀 시나리오 분석 중...`;
+    setProgress(56, '2/4 단계 · 연간 변동성(σ) 및 20·60일 추세 모멘텀 계산 중...');
+    await sleep(900);
+
+    setProgress(86, '3/4 단계 · 몬테카를로 1,000회 주가 시나리오 연산 중...');
     const sim = runMonteCarlo(data, days, 1000);
+    await sleep(950);
+
+    setProgress(100, '4/4 단계 · 시나리오 밴드 및 확률 지표 산출 완료!');
+    await sleep(350);
+
     const lastPrice = data.closes[data.closes.length - 1];
     const endHigh = sim.p90[days - 1];
     const endMid = sim.p50[days - 1];
@@ -400,14 +440,16 @@ async function executeSimulation(queryOverride) {
     document.getElementById('mYearHigh').textContent = `1년 고점 ${formatPrice(sim.yearHigh, data.currency)}`;
 
     lastState = { data, sim, days };
+    loadingBox.style.display = 'none';
     resultSection.style.display = 'block';
     renderChart(data, sim, days);
-    statusMsg.textContent = `✅ '${data.name}' 시뮬레이션 완료 (1,000회 경로 기준 · API v${data.version || APP_VERSION})`;
+    statusMsg.textContent = `✅ '${data.name}' 분석 완료 (1,000회 경로 기준 · v${APP_VERSION})`;
   } catch (err) {
+    loadingBox.style.display = 'none';
     statusMsg.textContent = `❌ ${err.message}`;
     statusMsg.className = 'status error';
   } finally {
-    runBtn.disabled = false;
+    setControlsDisabled(false);
   }
 }
 
@@ -415,7 +457,7 @@ runBtn.addEventListener('click', () => executeSimulation());
 stockInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') executeSimulation();
 });
-document.querySelectorAll('.quick-tags button').forEach((btn) => {
+quickTagBtns.forEach((btn) => {
   btn.addEventListener('click', () => executeSimulation(btn.dataset.q));
 });
 btnCandle.addEventListener('click', () => setChartMode('candle'));
