@@ -64,6 +64,7 @@ const NAV_ITEMS = [
           <a href="/">주가 시뮬레이터</a>
           <a href="/about.html">사이트 소개</a>
           <a href="/privacy.html">개인정보처리방침</a>
+          <a href="/feedback.html">문의·제보</a>
           <a href="https://velvettear.tistory.com" target="_blank" rel="noopener noreferrer">금융·시황 블로그</a>
         </div>
         <div>© 2026 스마트 투자 툴킷 · Build v${window.APP_VERSION}</div>
