@@ -1,4 +1,4 @@
-const API_VERSION = '1.1';
+const API_VERSION = '1.2';
 
 const POPULAR_KR_STOCKS = {
   '삼성전자': { code: '005930', suffix: '.KS' },
@@ -40,17 +40,30 @@ async function fetchYahooChart(symbol) {
 
   const data = await res.json();
   const result = data?.chart?.result?.[0];
-  if (!result || !result.timestamp || !result.indicators?.quote?.[0]?.close) return null;
+  const quote = result?.indicators?.quote?.[0];
+  if (!result || !result.timestamp || !quote?.close) return null;
 
   const rawDates = result.timestamp;
-  const rawCloses = result.indicators.quote[0].close;
-  const dates = [];
-  const closes = [];
+  const rawOpens = quote.open || [];
+  const rawHighs = quote.high || [];
+  const rawLows = quote.low || [];
+  const rawCloses = quote.close;
+
+  const dates = [], opens = [], highs = [], lows = [], closes = [];
 
   for (let i = 0; i < rawDates.length; i++) {
-    if (rawCloses[i] != null && !Number.isNaN(rawCloses[i])) {
+    const cRaw = rawCloses[i];
+    if (cRaw != null && !Number.isNaN(cRaw)) {
+      const c = Number(cRaw.toFixed(2));
+      const o = rawOpens[i] != null && !Number.isNaN(rawOpens[i]) ? Number(rawOpens[i].toFixed(2)) : c;
+      const h = rawHighs[i] != null && !Number.isNaN(rawHighs[i]) ? Number(rawHighs[i].toFixed(2)) : Math.max(o, c);
+      const l = rawLows[i] != null && !Number.isNaN(rawLows[i]) ? Number(rawLows[i].toFixed(2)) : Math.min(o, c);
+
       dates.push(new Date(rawDates[i] * 1000).toISOString().slice(0, 10));
-      closes.push(Number(rawCloses[i].toFixed(2)));
+      opens.push(o);
+      highs.push(Math.max(h, o, c));
+      lows.push(Math.min(l, o, c));
+      closes.push(c);
     }
   }
 
@@ -59,6 +72,9 @@ async function fetchYahooChart(symbol) {
     name: result.meta?.shortName || result.meta?.longName || symbol,
     currency: result.meta?.currency || 'USD',
     dates,
+    opens,
+    highs,
+    lows,
     closes,
   };
 }
@@ -156,6 +172,9 @@ export async function onRequestGet(context) {
         market: 'KR',
         currency: 'KRW',
         dates: chart.dates,
+        opens: chart.opens,
+        highs: chart.highs,
+        lows: chart.lows,
         closes: chart.closes,
       });
     } else {
@@ -172,6 +191,9 @@ export async function onRequestGet(context) {
         market: 'US',
         currency: chart.currency,
         dates: chart.dates,
+        opens: chart.opens,
+        highs: chart.highs,
+        lows: chart.lows,
         closes: chart.closes,
       });
     }
