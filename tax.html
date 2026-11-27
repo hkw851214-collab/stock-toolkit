@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>절세·양도세 계산기 | 스마트 투자 툴킷</title>
+  <meta name="description" content="미국·해외주식 양도소득세(250만원 공제·22%·손익통산) 계산 및 일반계좌·ISA·연금저축 계좌별 세금 절세 효과를 한눈에 비교하는 무료 계산기입니다." />
+  <link rel="stylesheet" href="/css/common.css?v=2.0" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    .tab-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      background: #0f172a;
+      border: 1.5px solid #1e293b;
+      border-radius: 12px;
+      padding: 5px;
+    }
+    .tab-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      padding: 12px 14px;
+      font-size: 1.04rem;
+      font-weight: 800;
+      border-radius: 9px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .tab-btn.active {
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label { font-size: 0.94rem; font-weight: 700; color: #cbd5e1; }
+    .field input, .field select {
+      width: 100%;
+      min-width: 0;
+      padding: 12px 13px;
+      background: #0f172a;
+      color: #f8fafc;
+      border: 1.5px solid #334155;
+      border-radius: 10px;
+      font-size: 1.08rem;
+      font-weight: 600;
+      outline: none;
+    }
+    .field input:focus, .field select:focus { border-color: #38bdf8; }
+
+    .action-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    .tip-box {
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 12px;
+      padding: 15px 18px;
+      margin-bottom: 20px;
+      font-size: 0.98rem;
+      color: #e2e8f0;
+      line-height: 1.65;
+    }
+    .tip-box strong { color: #38bdf8; }
+
+    .table-wrap {
+      overflow-x: auto;
+      margin-top: 22px;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+    }
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.96rem;
+      min-width: 560px;
+    }
+    .data-table th {
+      background: #0f172a;
+      color: #94a3b8;
+      font-weight: 700;
+      padding: 13px 10px;
+      text-align: right;
+      border-bottom: 1px solid #1e293b;
+    }
+    .data-table th:first-child, .data-table td:first-child { text-align: left; padding-left: 16px; }
+    .data-table td {
+      padding: 12px 10px;
+      text-align: right;
+      border-bottom: 1px solid #1f2937;
+      color: #e2e8f0;
+      font-variant-numeric: tabular-nums;
+    }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table .best-row td { background: rgba(56, 189, 248, 0.08); font-weight: 700; }
+    .data-table .tax-red { color: #fb7185; font-weight: 700; }
+    .data-table .save-amber { color: #fbbf24; font-weight: 700; }
+
+    @media (max-width: 720px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .tab-btn { font-size: 0.95rem; padding: 11px 8px; }
+    }
+  </style>
+</head>
+<body data-page="tax">
+  <div id="site-nav"></div>
+
+  <main class="wrap">
+    <header class="page-header">
+      <h1>절세 · 양도소득세 계산기</h1>
+      <p>해외주식 양도세(22%) 손익통산 계산 &amp; 일반·ISA·연금저축 계좌별 절세 비교</p>
+    </header>
+
+    <div id="ad-top"></div>
+
+    <div class="tab-bar" role="tablist">
+      <button id="tabOverseas" class="tab-btn active" role="tab">미국·해외주식 양도세 (22%)</button>
+      <button id="tabAccount" class="tab-btn" role="tab">일반 vs ISA vs 연금저축 비교</button>
+    </div>
+
+    <!-- [모드 1] 해외주식 양도소득세 입력 -->
+    <section id="panelOverseas" class="card">
+      <div class="quick-tags" style="margin-top: 0; margin-bottom: 18px;">
+        <button data-ov-preset="small">수익 500만</button>
+        <button data-ov-preset="loss">수익 1,500만 + 손절 300만</button>
+        <button data-ov-preset="large">수익 5,000만</button>
+        <button data-ov-preset="under">250만 이하 (비과세)</button>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label for="ovGain">연간 실현 수익 합계 (만원)</label>
+          <input id="ovGain" type="number" min="0" step="50" value="1500" />
+        </div>
+        <div class="field">
+          <label for="ovLoss">연간 실현 손실 / 손절액 (만원)</label>
+          <input id="ovLoss" type="number" min="0" step="50" value="300" />
+        </div>
+        <div class="field">
+          <label for="ovFee">매매 수수료·제비용 (만원)</label>
+          <input id="ovFee" type="number" min="0" step="5" value="10" />
+        </div>
+      </div>
+
+      <div class="action-bar">
+        <div id="ovStatus" class="status" style="margin-top: 0;"></div>
+        <button id="calcOvBtn" class="btn-primary">양도소득세 계산</button>
+      </div>
+    </section>
+
+    <!-- [모드 2] 계좌별 절세 비교 입력 -->
+    <section id="panelAccount" class="card" style="display: none;">
+      <div class="quick-tags" style="margin-top: 0; margin-bottom: 18px;">
+        <button data-ac-preset="small">수익 500만</button>
+        <button data-ac-preset="mid">수익 1,500만</button>
+        <button data-ac-preset="high">수익 3,000만 (종합과세 구간)</button>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label for="acProfit">국내상장 해외ETF 총 수익 (만원)</label>
+          <input id="acProfit" type="number" min="0" step="100" value="1500" />
+        </div>
+        <div class="field">
+          <label for="acLoss">같은 계좌 내 실현 손실 (만원)</label>
+          <input id="acLoss" type="number" min="0" step="50" value="0" />
+        </div>
+        <div class="field">
+          <label for="pensionRate">연금저축 수령 시 세율</label>
+          <select id="pensionRate">
+            <option value="0.055" selected>만 55~69세 (5.5%)</option>
+            <option value="0.044">만 70~79세 (4.4%)</option>
+            <option value="0.033">만 80세 이상 (3.3%)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="action-bar">
+        <div id="acStatus" class="status" style="margin-top: 0;"></div>
+        <button id="calcAcBtn" class="btn-primary">계좌별 절세 비교</button>
+      </div>
+    </section>
+
+    <!-- 공통 결과 영역 -->
+    <section id="resultSection" class="card">
+      <div class="result-head">
+        <h2 id="resultTitle">세금 계산 결과</h2>
+      </div>
+
+      <div id="tipBox" class="tip-box"></div>
+
+      <div id="metricsGrid" class="metrics"></div>
+
+      <div class="chart-box" style="height: 360px;">
+        <canvas id="taxChart"></canvas>
+      </div>
+
+      <div id="tableWrap" class="table-wrap" style="display: none;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>계좌 유형</th>
+              <th>과세 방식</th>
+              <th>예상 세금</th>
+              <th>세후 실수령액</th>
+              <th>일반계좌 대비 절세</th>
+            </tr>
+          </thead>
+          <tbody id="compareTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <div id="ad-bottom"></div>
+
+    <section class="card guide-card">
+      <h2>📘 투자자 필수 절세 전략 가이드</h2>
+
+      <h3>1. 해외주식 양도세 250만 원 공제와 연말 손익통산</h3>
+      <ul>
+        <li>해외주식은 매년 1월 1일~12월 31일(결제일 기준) 동안 실현한 순이익에서 <strong>연간 250만 원까지 기본공제</strong>가 적용되며, 초과 금액에 대해서만 <strong>22%(양도소득세 20% + 지방소득세 2%)</strong>가 부과됩니다.</li>
+        <li>같은 해에 수익 난 종목과 손실 난 종목을 함께 매도하면 수익과 손실을 합산(손익통산)해 과세표준을 낮출 수 있습니다. 단, 미국 주식은 결제일(T+1) 기준으로 연말 영업일 마감 전에 매도해야 당해 연도에 반영됩니다.</li>
+      </ul>
+
+      <h3>2. 국내 상장 해외 ETF: 일반 계좌 vs ISA vs 연금저축</h3>
+      <ul>
+        <li><strong>일반 계좌:</strong> 국내 상장 해외 ETF(예: S&amp;P500, 나스닥100, 미국배당 ETF)의 매매차익과 분배금 모두 <strong>15.4% 배당소득세</strong>가 부과되며, 연간 금융소득이 2,000만 원을 초과하면 금융소득종합과세 대상이 됩니다.</li>
+        <li><strong>중개형 ISA:</strong> 계좌 내 종목 간 손익통산이 가능하고, 순이익 <strong>200만 원(서민형 400만 원)까지 비과세</strong>, 초과분은 <strong>9.9% 분리과세</strong>로 금융소득종합과세에 합산되지 않습니다.</li>
+        <li><strong>연금저축·IRP:</strong> 운용 기간 중 세금을 떼지 않고 전액 재투자(과세이연)되며, 만 55세 이후 연금으로 수령 시 <strong>3.3%~5.5% 저율과세</strong>가 적용됩니다.</li>
+      </ul>
+    </section>
+
+    <div id="site-footer"></div>
+  </main>
+
+  <script src="/js/layout.js?v=2.0"></script>
+  <script src="/js/tax.js?v=2.0"></script>
+</body>
+</html>
